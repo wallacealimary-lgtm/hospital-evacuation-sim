@@ -82,6 +82,18 @@ function rasteriseWalls(g, walls) {
 function cutDoor(g, d, di) {
   // axis 'x': the door's width runs along x (it sits in a wall running along x)
   const hw = d.width / 2 - 0.05;
+  if (d.dir) {                       // a door in a wall at an angle: cut a turned rectangle
+    const [ux, uy] = d.dir, R = hw + DOOR_DEPTH;
+    const [ax, ay] = toCell(g, d.x - R, d.y - R), [bx, by] = toCell(g, d.x + R, d.y + R);
+    for (let cy = Math.max(0, ay); cy <= Math.min(g.H - 1, by); cy++)
+      for (let cx = Math.max(0, ax); cx <= Math.min(g.W - 1, bx); cx++) {
+        const px = g.minX + (cx + 0.5) * g.cell - d.x, py = g.minY + (cy + 0.5) * g.cell - d.y;
+        const along = px * ux + py * uy, across = -px * uy + py * ux;
+        const i = idx(g, cx, cy);
+        if (Math.abs(along) <= hw && Math.abs(across) <= DOOR_DEPTH && g.blocked[i]) { g.blocked[i] = 0; g.door[i] = di; }
+      }
+    return;
+  }
   const [hx, hy] = d.axis === 'x' ? [hw, DOOR_DEPTH] : [DOOR_DEPTH, hw];
   const [ax, ay] = toCell(g, d.x - hx, d.y - hy), [bx, by] = toCell(g, d.x + hx, d.y + hy);
   for (let cy = Math.max(0, ay); cy <= Math.min(g.H - 1, by); cy++)

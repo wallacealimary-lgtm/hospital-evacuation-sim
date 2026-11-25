@@ -1,5 +1,5 @@
 // Headless check: build the grids, run both scenarios, print the key numbers.
-// node sim/test_headless.mjs sim/buildings/RCH.building.json
+// node test_headless.mjs [buildings/RCH.building.json]
 import { readFileSync } from 'node:fs';
 import { buildGrids } from './engine/grid.js';
 import { Sim, fmt } from './engine/sim.js';

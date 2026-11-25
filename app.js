@@ -12,6 +12,8 @@ const $ = id => document.getElementById(id);
 const css = n => getComputedStyle(document.documentElement).getPropertyValue(n).trim();
 const params = new URLSearchParams(location.search);
 const SRC = params.get('b') || './buildings/RCH.building.json';
+// A building file the visitor loaded is kept in this browser (it never leaves it), then the page reloads with ?b=local.
+const LOCAL_KEY = 'sim.localBuilding';
 
 const state = { lifts: { ...DEFAULT_LIFTS }, staffing: 1, sweep: null, scenario: 'full', shift: 'day', speed: 5, running: false, view: 'all', fire: null, mode: '2d' };
 let hasComps = false;
@@ -19,14 +21,12 @@ let building, grid, sim, bg = [], layout = [], scale = 1, v3 = null;
 
 init();
 
-// A building file the visitor loaded is kept for this tab, then the page reloads with ?b=local.
-const LOCAL_KEY = 'sim.localBuilding';
 async function loadBuilding() {
   if (SRC === 'local') {
     let txt = null;
-    try { txt = sessionStorage.getItem(LOCAL_KEY); } catch {}
+    try { txt = localStorage.getItem(LOCAL_KEY); } catch {}
     if (txt) { $('backRch').hidden = false; return JSON.parse(txt); }
-    showLoadError('The building you loaded is no longer stored in this tab, so the hospital is shown instead. Load it again with "Load your building…".');
+    showLoadError('The building you loaded is no longer stored in this browser, so the hospital is shown instead. Load it again with "Load your building…".');
     return (await fetch('./buildings/RCH.building.json')).json();
   }
   if (params.get('b')) $('backRch').hidden = false;
@@ -39,7 +39,7 @@ $('loadFile').addEventListener('change', async e => {
     const txt = await f.text(), b = JSON.parse(txt);
     const problem = checkBuilding(b);
     if (problem) return showLoadError(`${f.name}: ${problem}`);
-    try { sessionStorage.setItem(LOCAL_KEY, txt); } catch { return showLoadError(`${f.name} is too big to keep in this browser tab (${(txt.length / 1e6).toFixed(1)} MB). Run the sim locally instead (see the README).`); }
+    try { localStorage.setItem(LOCAL_KEY, txt); } catch { return showLoadError(`${f.name} is too big to keep in this browser (${(txt.length / 1e6).toFixed(1)} MB). Run the sim locally instead (see the README).`); }
     location.search = '?b=local';
   } catch (err) { showLoadError(`${f.name} is not a building file: ${err.message}`); }
 });
