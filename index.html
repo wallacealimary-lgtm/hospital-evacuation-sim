@@ -1,0 +1,177 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>People Movement Sim</title>
+<style>
+  :root {
+    --bg: #f6f5f2; --panel: #ffffff; --ink: #1d1f23; --muted: #6b6f76; --line: #e3e1dc;
+    --floor: #fbfaf7; --outside: #eef1ea; --wall: #30343b; --door: #f6f5f2; --stair: #d9d4ff;
+    --accent: #2a7de1; --wall3d: #cfc9bf; --fire: #e03131; --safe: #9aa0a6; --btn: #f0eee9;
+    --comp-a: #eef4fb; --comp-b: #f8f1e7; --comp-c: #eef7f0; --comp-d: #f6eef6;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #15171a; --panel: #1d2024; --ink: #e8e8e6; --muted: #9a9fa6; --line: #2e3238;
+      --floor: #22262b; --outside: #1a1f1a; --wall: #c9ccd1; --door: #15171a; --stair: #3a3566;
+      --btn: #2a2e34; --safe: #5c6168; --wall3d: #7d838c;
+      --comp-a: #1f2a36; --comp-b: #33291e; --comp-c: #1e2e24; --comp-d: #2f2333;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #15171a; --panel: #1d2024; --ink: #e8e8e6; --muted: #9a9fa6; --line: #2e3238;
+    --floor: #22262b; --outside: #1a1f1a; --wall: #c9ccd1; --door: #15171a; --stair: #3a3566;
+    --btn: #2a2e34; --safe: #5c6168; --wall3d: #7d838c;
+    --comp-a: #1f2a36; --comp-b: #33291e; --comp-c: #1e2e24; --comp-d: #2f2333;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 14px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+  header { display: flex; flex-wrap: wrap; gap: 10px 16px; align-items: center; padding: 12px 16px; border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 2; }
+  header h1 { font-size: 15px; margin: 0 8px 0 0; font-weight: 650; }
+  header h1 small { color: var(--muted); font-weight: 400; margin-left: 6px; }
+  header .nav { display: flex; gap: 12px; align-items: center; margin-left: auto; font-size: 13px; }
+  header .nav a { color: var(--muted); text-decoration: none; }
+  header .nav a:hover { color: var(--accent); }
+  .loadbtn { cursor: pointer; border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; background: var(--btn); color: var(--ink); }
+  .loadbtn:hover { border-color: var(--accent); }
+  #loadErr { color: var(--fire); font-size: 13px; width: 100%; }
+  label.ctl { display: flex; gap: 6px; align-items: center; color: var(--muted); font-size: 13px; }
+  select, input, button { font: inherit; color: var(--ink); background: var(--btn); border: 1px solid var(--line); border-radius: 6px; padding: 5px 9px; }
+  input[type=number] { width: 64px; }
+  button { cursor: pointer; }
+  button.primary { background: var(--accent); color: #fff; border-color: var(--accent); min-width: 78px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 6px; overflow: hidden; }
+  .seg button { border: 0; border-radius: 0; background: var(--btn); }
+  .seg button.on { background: var(--ink); color: var(--panel); }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 330px; gap: 0; }
+  #stage { position: relative; padding: 12px 16px; min-width: 0; }
+  #tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 10px; }
+  #tabs button.on { background: var(--ink); color: var(--panel); }
+  canvas#view { display: block; width: 100%; border-radius: 8px; background: var(--outside); cursor: crosshair; }
+  #opts3d { display: flex; flex-wrap: wrap; gap: 8px 16px; align-items: center; margin-bottom: 10px; }
+  #opts3d[hidden], #view3d[hidden], canvas#view[hidden] { display: none; }
+  #opts3d .hint { color: var(--muted); font-size: 12px; }
+  #viewWrap { position: relative; }
+  #hud { position: absolute; bottom: 10px; right: 10px; display: grid; gap: 2px; text-align: right; background: color-mix(in srgb, var(--panel) 82%, transparent); border: 1px solid var(--line); border-radius: 10px; padding: 8px 12px; pointer-events: none; min-width: 180px; }
+  #hud b { font-size: 26px; font-variant-numeric: tabular-nums; line-height: 1.1; }
+  #hud span { font-size: 12.5px; color: var(--muted); }
+  #hud #hLine { color: var(--ink); font-weight: 600; font-size: 13.5px; }
+  .form { display: grid; gap: 8px; font-size: 13px; }
+  .form label { display: flex; justify-content: space-between; align-items: center; gap: 8px; color: var(--muted); }
+  .form label > span { display: flex; align-items: center; gap: 6px; }
+  .form input[type=range] { width: 110px; }
+  .form b { color: var(--ink); font-variant-numeric: tabular-nums; min-width: 44px; text-align: right; font-weight: 600; }
+  #liftStatus { margin-top: 8px; display: grid; gap: 2px; }
+  #view3d canvas { display: block; border-radius: 8px; touch-action: none; }
+  #tip { position: absolute; pointer-events: none; background: var(--panel); border: 1px solid var(--line); border-radius: 6px; padding: 6px 8px; font-size: 12px; box-shadow: 0 4px 14px rgba(0,0,0,.12); display: none; max-width: 260px; }
+  aside { border-left: 1px solid var(--line); background: var(--panel); padding: 14px 16px; position: sticky; top: 57px; height: calc(100vh - 57px); overflow: auto; }
+  aside h2 { font-size: 12px; text-transform: uppercase; letter-spacing: .06em; color: var(--muted); margin: 18px 0 8px; font-weight: 600; }
+  aside h2:first-child { margin-top: 0; }
+  #scDesc { color: var(--muted); font-size: 13px; margin: 0; }
+  #fireHint { color: var(--fire); font-size: 13px; margin: 6px 0 0; }
+  .stats { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .stat { background: var(--bg); border-radius: 8px; padding: 8px 10px; }
+  .stat b { display: block; font-size: 20px; font-variant-numeric: tabular-nums; }
+  .stat span { color: var(--muted); font-size: 12px; }
+  canvas#chart { width: 100%; height: 130px; display: block; }
+  canvas#curve { width: 100%; height: 170px; display: block; margin-top: 8px; }
+  .note { color: var(--muted); font-size: 12.5px; margin: 0 0 8px; }
+  #staffing { width: 110px; }
+  #staffingVal { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; min-width: 92px; }
+  .legend { display: grid; gap: 5px; font-size: 13px; }
+  .legend i { display: inline-block; width: 11px; height: 11px; border-radius: 50%; margin-right: 7px; vertical-align: -1px; }
+  ol#log { list-style: none; padding: 0; margin: 0; font-size: 12.5px; max-height: 220px; overflow: auto; }
+  ol#log li { padding: 3px 0; border-bottom: 1px solid var(--line); }
+  ol#log time { color: var(--muted); font-variant-numeric: tabular-nums; margin-right: 6px; }
+  table.exits { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+  table.exits td { padding: 2px 0; font-variant-numeric: tabular-nums; }
+  table.exits td:last-child { text-align: right; }
+  @media (max-width: 860px) {
+    main { grid-template-columns: 1fr; }
+    aside { position: static; height: auto; border-left: 0; border-top: 1px solid var(--line); }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1 id="title">People Movement Sim <small id="proj"></small></h1>
+  <label class="ctl">Scenario <select id="scenario"></select></label>
+  <label class="ctl">Shift
+    <span class="seg" id="shift"><button data-v="day" class="on">Day</button><button data-v="night">Night</button></span>
+  </label>
+  <label class="ctl">Staff on duty <input id="staffing" type="range" min="0" max="100" step="1" value="92"> <b id="staffingVal">100%</b></label>
+  <label class="ctl">Seed <input id="seed" type="number" value="7" min="1"></label>
+  <label class="ctl">View
+    <span class="seg" id="mode"><button data-v="2d" class="on">2D</button><button data-v="3d">3D</button></span>
+  </label>
+  <button class="primary" id="play">Run</button>
+  <button id="reset">Reset</button>
+  <label class="ctl">Speed
+    <span class="seg" id="speed"><button data-v="1">1×</button><button data-v="5" class="on">5×</button><button data-v="20">20×</button><button data-v="60">60×</button></span>
+  </label>
+  <span class="nav"><label class="loadbtn" for="loadFile">Load your building…</label><input id="loadFile" type="file" accept=".json,application/json" hidden> <a id="ownHelp" href="https://github.com/wallacealimary-lgtm/hospital-evacuation-sim#try-it-on-your-own-revit-model" target="_blank" rel="noopener">Use your own Revit model ↗</a> <a id="backRch" href="./" hidden>Back to the hospital</a></span>
+</header>
+<div id="loadErr" hidden style="padding:8px 16px"></div>
+<main>
+  <section id="stage">
+    <div id="tabs"></div>
+    <div id="opts3d" hidden>
+      <label class="ctl">Walls
+        <span class="seg" id="wallH"><button data-v="1.2" class="on">Cut away</button><button data-v="3">Full height</button></span>
+      </label>
+      <label class="ctl"><input type="checkbox" id="orbit"> Auto-orbit</label>
+      <label class="ctl">Spread floors <input id="explode" type="range" min="1" max="3" step="0.1" value="1.6"></label>
+      <span class="hint">Drag to orbit · right-drag to pan · scroll to zoom · click a room to start a fire</span>
+    </div>
+    <div id="viewWrap">
+      <canvas id="view"></canvas>
+      <div id="view3d" hidden></div>
+      <div id="hud"><b id="hTime">0:00</b><span id="hLine"></span><span id="hSub"></span></div>
+    </div>
+    <div id="tip"></div>
+  </section>
+  <aside>
+    <h2>Scenario</h2>
+    <p id="scDesc"></p>
+    <p id="fireHint"></p>
+    <h2>Lifts &amp; stairs</h2>
+    <div class="form">
+      <label>Evacuation lifts <select id="liftUse">
+        <option value="off">Off (stairs only)</option><option value="beds">Bed-bound patients</option>
+        <option value="dependent">All dependent patients</option><option value="everyone">Everyone upstairs</option></select></label>
+      <label>Lifts in service <span class="seg" id="liftN"><button data-v="1">1</button><button data-v="2" class="on">2</button><button data-v="3">3</button></span></label>
+      <label>Car capacity <span><input id="liftCap" type="range" min="6" max="26" step="1" value="13"> <b data-for="liftCap"></b></span></label>
+      <label>Lift speed <span><input id="liftSpeed" type="range" min="0.5" max="2.5" step="0.1" value="1"> <b data-for="liftSpeed"></b></span></label>
+      <label>Doors &amp; loading <span><input id="liftDoor" type="range" min="4" max="40" step="1" value="12"> <b data-for="liftDoor"></b></span></label>
+      <label>Bed down one storey of stairs <span><input id="bedStair" type="range" min="30" max="300" step="10" value="150"> <b data-for="bedStair"></b></span></label>
+      <label>Evac chair down one storey <span><input id="chairStair" type="range" min="20" max="150" step="5" value="60"> <b data-for="chairStair"></b></span></label>
+    </div>
+    <div id="liftStatus" class="note"></div>
+    <h2>Now</h2>
+    <div class="stats">
+      <div class="stat"><b id="sTime">0:00</b><span>building time</span></div>
+      <div class="stat"><b id="sLeft">0</b><span>still to reach safety</span></div>
+      <div class="stat"><b id="sSafe">0</b><span>safe</span></div>
+      <div class="stat"><b id="sWait">0</b><span>waiting for staff</span></div>
+    </div>
+    <h2>People still to move</h2>
+    <canvas id="chart"></canvas>
+    <h2>Staffing curve</h2>
+    <p class="note">Runs this scenario at staffing levels from 1% to 150% (same seed) and plots how long it takes everyone to reach safety. The horizontal axis is logarithmic.</p>
+    <button id="sweep">Run staffing sweep</button> <span id="sweepStatus" class="note"></span>
+    <canvas id="curve"></canvas>
+    <h2>Who's who</h2>
+    <div class="legend" id="legend"></div>
+    <h2>Events</h2>
+    <ol id="log"></ol>
+    <h2>Exits used</h2>
+    <table class="exits" id="exits"></table>
+  </aside>
+</main>
+<script type="importmap">
+{ "imports": { "three": "./vendor/three.module.js", "three/addons/controls/OrbitControls.js": "./vendor/OrbitControls.js" } }
+</script>
+<script type="module" src="app.js"></script>
+</body>
+</html>
